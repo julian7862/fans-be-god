@@ -12,16 +12,22 @@ export async function createProposalAction(groupId: string, formData: FormData) 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: '請先登入' }
 
+  const toNum = (v: FormDataEntryValue | null) => {
+    if (!v || v === '') return undefined
+    const n = Number(v)
+    return isNaN(n) ? undefined : n
+  }
+
   const raw = {
     ticker: formData.get('ticker'),
     stockName: formData.get('stockName'),
     market: formData.get('market') || undefined,
-    proposalPrice: formData.get('proposalPrice') || undefined,
+    proposalPrice: toNum(formData.get('proposalPrice')),
     investmentThesis: formData.get('investmentThesis'),
-    targetPrice: formData.get('targetPrice'),
-    stopLossPrice: formData.get('stopLossPrice') || undefined,
+    targetPrice: toNum(formData.get('targetPrice')),
+    stopLossPrice: toNum(formData.get('stopLossPrice')),
     exitCondition: formData.get('exitCondition') || undefined,
-    expectedHoldingDays: formData.get('expectedHoldingDays') || undefined,
+    expectedHoldingDays: toNum(formData.get('expectedHoldingDays')),
   }
 
   const parsed = createProposalSchema.safeParse(raw)
