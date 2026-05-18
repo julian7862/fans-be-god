@@ -17,6 +17,16 @@ export const createProposalSchema = z.object({
 
 export type CreateProposalInput = z.infer<typeof createProposalSchema>
 
-export const updateProposalSchema = createProposalSchema.partial()
+export const updateProposalSchema = z.object({
+  ticker: z.string().min(1).optional(),
+  stockName: z.string().min(1).optional(),
+  market: z.string().optional(),
+  proposalPrice: z.number().positive().optional(),
+  investmentThesis: z.string().min(20).optional(),
+  targetPrice: z.number().positive().optional(),
+  stopLossPrice: z.number().positive().optional(),
+  exitCondition: z.string().optional(),
+  expectedHoldingDays: z.number().int().positive().optional(),
+})
 
 export type UpdateProposalInput = z.infer<typeof updateProposalSchema>
