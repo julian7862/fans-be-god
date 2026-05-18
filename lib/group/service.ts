@@ -37,6 +37,7 @@ export async function getGroupsForUser(
 ): Promise<Result<GroupWithMemberCount[]>> {
   const client = supabase ?? await createClient()
 
+  // Step 1: get group IDs (must be serial — need IDs for next queries)
   const { data: memberships, error: memError } = await client
     .from('group_members')
     .select('group_id')
@@ -47,27 +48,21 @@ export async function getGroupsForUser(
   const groupIds = memberships.map(m => m.group_id)
   if (groupIds.length === 0) return { success: true, data: [] }
 
-  const { data: groups, error: groupError } = await client
-    .from('groups')
-    .select('*')
-    .in('id', groupIds)
-    .order('created_at', { ascending: false })
+  // Step 2+3: fetch groups AND member counts in parallel (saves 1 round trip)
+  const [groupsResult, countsResult] = await Promise.all([
+    client.from('groups').select('*').in('id', groupIds).order('created_at', { ascending: false }),
+    client.from('group_members').select('group_id').in('group_id', groupIds),
+  ])
 
-  if (groupError) return { success: false, error: groupError.message }
-
-  const { data: counts, error: countError } = await client
-    .from('group_members')
-    .select('group_id')
-    .in('group_id', groupIds)
-
-  if (countError) return { success: false, error: countError.message }
+  if (groupsResult.error) return { success: false, error: groupsResult.error.message }
+  if (countsResult.error) return { success: false, error: countsResult.error.message }
 
   const countMap = new Map<string, number>()
-  for (const row of counts) {
+  for (const row of countsResult.data) {
     countMap.set(row.group_id, (countMap.get(row.group_id) ?? 0) + 1)
   }
 
-  const result: GroupWithMemberCount[] = groups.map(g => ({
+  const result: GroupWithMemberCount[] = groupsResult.data.map(g => ({
     ...g,
     member_count: countMap.get(g.id) ?? 0,
   }))

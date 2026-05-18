@@ -28,6 +28,10 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // getUser() is required here — it refreshes the session cookie via @supabase/ssr.
+  // getClaims() is not available in @supabase/supabase-js v2.x / @supabase/ssr v0.x.
+  // This is the ONLY place auth should be checked server-side per request;
+  // Nav and pages should avoid redundant getUser() calls.
   const {
     data: { user },
   } = await supabase.auth.getUser()

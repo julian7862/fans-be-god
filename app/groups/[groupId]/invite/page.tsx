@@ -6,6 +6,7 @@ import { inviteMemberSchema, type InviteMemberInput } from '@/lib/validation/gro
 import { inviteMemberAction } from '@/app/groups/actions'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,9 +33,12 @@ export default function InviteMemberPage() {
     const result = await inviteMemberAction(groupId, formData)
 
     if (result?.error) {
-      setError(typeof result.error === 'string' ? result.error : '請檢查輸入內容')
+      const msg = typeof result.error === 'string' ? result.error : '請檢查輸入內容'
+      setError(msg)
+      toast.error(msg)
     } else if (result?.success) {
       setSuccessMsg(result.message ?? '邀請成功')
+      toast.success('邀請成功')
       reset()
     }
 

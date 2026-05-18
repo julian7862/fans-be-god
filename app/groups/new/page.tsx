@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createGroupSchema, type CreateGroupInput } from '@/lib/validation/groupSchema'
 import { createGroupAction } from '@/app/groups/actions'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,7 +30,9 @@ export default function NewGroupPage() {
 
     const result = await createGroupAction(formData)
     if (result?.error) {
-      setError(typeof result.error === 'string' ? result.error : '請檢查輸入內容')
+      const msg = typeof result.error === 'string' ? result.error : '請檢查輸入內容'
+      setError(msg)
+      toast.error(msg)
       setLoading(false)
     }
   }
