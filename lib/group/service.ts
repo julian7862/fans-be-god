@@ -92,6 +92,32 @@ export async function getGroupById(
 ): Promise<Result<GroupWithMemberCount>> {
   const client = supabase ?? await createClient()
 
+  // Single RPC — replaces 3 sequential queries (membership check + group + count)
+  const { data, error } = await client.rpc('get_group_by_id', {
+    p_group_id: groupId,
+    p_user_id: userId,
+  })
+
+  if (error) {
+    // Fallback if RPC not deployed yet
+    if (error.code === '42883') {
+      return getGroupByIdFallback(groupId, userId, client)
+    }
+    return { success: false, error: error.message }
+  }
+
+  if (!data || data.length === 0) {
+    return { success: false, error: '你沒有權限查看此小組' }
+  }
+
+  return { success: true, data: data[0] as GroupWithMemberCount }
+}
+
+async function getGroupByIdFallback(
+  groupId: string,
+  userId: string,
+  client: SupabaseClient
+): Promise<Result<GroupWithMemberCount>> {
   const { data: membership } = await client
     .from('group_members')
     .select('id')
@@ -101,22 +127,16 @@ export async function getGroupById(
 
   if (!membership) return { success: false, error: '你沒有權限查看此小組' }
 
-  const { data: group, error: groupError } = await client
-    .from('groups')
-    .select('*')
-    .eq('id', groupId)
-    .single()
+  const [groupResult, countResult] = await Promise.all([
+    client.from('groups').select('*').eq('id', groupId).single(),
+    client.from('group_members').select('*', { count: 'exact', head: true }).eq('group_id', groupId),
+  ])
 
-  if (groupError) return { success: false, error: groupError.message }
-
-  const { count } = await client
-    .from('group_members')
-    .select('*', { count: 'exact', head: true })
-    .eq('group_id', groupId)
+  if (groupResult.error) return { success: false, error: groupResult.error.message }
 
   return {
     success: true,
-    data: { ...group, member_count: count ?? 0 },
+    data: { ...groupResult.data, member_count: countResult.count ?? 0 },
   }
 }
 

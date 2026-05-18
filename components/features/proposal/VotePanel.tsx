@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useOptimistic, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -23,27 +23,40 @@ type VotePanelProps = {
 export function VotePanel({ proposalId, myVote, allVotes, onSubmitVote }: VotePanelProps) {
   const [selectedVote, setSelectedVote] = useState<VoteValue | null>(myVote?.vote ?? null)
   const [reason, setReason] = useState(myVote?.reason ?? '')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-  const totalVotes = allVotes.length
-  const agreeCount = allVotes.filter(v => v.vote === 'agree').length
+  const [optimisticVotes, addOptimisticVote] = useOptimistic(
+    allVotes,
+    (current, newVote: VoteValue) => {
+      const existing = current.find(v => v.user_id === myVote?.user_id)
+      if (existing) {
+        return current.map(v => v.user_id === myVote?.user_id ? { ...v, vote: newVote } : v)
+      }
+      return [...current, { id: 'optimistic', proposal_id: proposalId, user_id: 'me', vote: newVote, reason: null, created_at: '', updated_at: '', users: { display_name: '我' } }]
+    }
+  )
+
+  const totalVotes = optimisticVotes.length
+  const agreeCount = optimisticVotes.filter(v => v.vote === 'agree').length
   const agreeRatio = totalVotes > 0 ? ((agreeCount / totalVotes) * 100).toFixed(0) : '0'
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (!selectedVote) return
-    setLoading(true)
     setError(null)
 
-    const formData = new FormData()
-    formData.set('vote', selectedVote)
-    if (reason.trim()) formData.set('reason', reason.trim())
+    startTransition(async () => {
+      addOptimisticVote(selectedVote)
 
-    const result = await onSubmitVote(proposalId, formData)
-    if (result?.error) {
-      setError(result.error)
-    }
-    setLoading(false)
+      const formData = new FormData()
+      formData.set('vote', selectedVote)
+      if (reason.trim()) formData.set('reason', reason.trim())
+
+      const result = await onSubmitVote(proposalId, formData)
+      if (result?.error) {
+        setError(result.error)
+      }
+    })
   }
 
   return (
@@ -82,19 +95,19 @@ export function VotePanel({ proposalId, myVote, allVotes, onSubmitVote }: VotePa
         size="sm"
         className="w-full"
         onClick={handleSubmit}
-        disabled={loading || !selectedVote}
+        disabled={isPending || !selectedVote}
       >
-        {loading ? '送出中...' : myVote ? '更新投票' : '投票'}
+        {isPending ? '送出中...' : myVote ? '更新投票' : '投票'}
       </Button>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {/* Vote list */}
-      {allVotes.length > 0 && (
+      {optimisticVotes.length > 0 && (
         <div className="border-t pt-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">投票記錄</p>
           <div className="space-y-1">
-            {allVotes.map(v => (
+            {optimisticVotes.map(v => (
               <div key={v.id} className="flex justify-between text-xs">
                 <span>{v.users.display_name}</span>
                 <span>{voteOptions.find(o => o.value === v.vote)?.emoji} {voteOptions.find(o => o.value === v.vote)?.label}</span>

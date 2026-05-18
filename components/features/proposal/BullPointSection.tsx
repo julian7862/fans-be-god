@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useOptimistic, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -27,26 +27,37 @@ type BullPointSectionProps = {
 export function BullPointSection({ proposalId, bullPoints, currentUserId }: BullPointSectionProps) {
   const [content, setContent] = useState('')
   const [category, setCategory] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-  async function handleAdd() {
+  const [optimisticPoints, addOptimisticPoint] = useOptimistic(
+    bullPoints,
+    (current: typeof bullPoints, newPoint: { content: string; category: string }): typeof bullPoints => [
+      ...current,
+      { id: 'optimistic-' + Date.now(), proposal_id: proposalId, user_id: currentUserId, content: newPoint.content, category: (newPoint.category || null) as ProposalBullPoint['category'], created_at: new Date().toISOString(), users: { display_name: '我' } },
+    ]
+  )
+
+  function handleAdd() {
     if (!content.trim()) return
-    setLoading(true)
     setError(null)
+    const addContent = content.trim()
+    const addCategory = category
 
-    const formData = new FormData()
-    formData.set('content', content)
-    if (category) formData.set('category', category)
-
-    const result = await addBullPointAction(proposalId, formData)
-    if (result?.error) {
-      setError(typeof result.error === 'string' ? result.error : '新增失敗')
-    } else {
+    startTransition(async () => {
+      addOptimisticPoint({ content: addContent, category: addCategory })
       setContent('')
       setCategory('')
-    }
-    setLoading(false)
+
+      const formData = new FormData()
+      formData.set('content', addContent)
+      if (addCategory) formData.set('category', addCategory)
+
+      const result = await addBullPointAction(proposalId, formData)
+      if (result?.error) {
+        setError(typeof result.error === 'string' ? result.error : '新增失敗')
+      }
+    })
   }
 
   async function handleDelete(id: string) {
@@ -55,11 +66,11 @@ export function BullPointSection({ proposalId, bullPoints, currentUserId }: Bull
 
   return (
     <div className="space-y-4">
-      {bullPoints.length === 0 ? (
+      {optimisticPoints.length === 0 ? (
         <p className="text-sm text-muted-foreground">尚無看多理由</p>
       ) : (
         <ul className="space-y-3">
-          {bullPoints.map(bp => (
+          {optimisticPoints.map(bp => (
             <li key={bp.id} className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
@@ -98,8 +109,8 @@ export function BullPointSection({ proposalId, bullPoints, currentUserId }: Bull
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={handleAdd} disabled={loading || !content.trim()}>
-            {loading ? '新增中...' : '新增'}
+          <Button size="sm" onClick={handleAdd} disabled={isPending || !content.trim()}>
+            {isPending ? '新增中...' : '新增'}
           </Button>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
