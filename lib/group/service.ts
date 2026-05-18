@@ -37,7 +37,25 @@ export async function getGroupsForUser(
 ): Promise<Result<GroupWithMemberCount[]>> {
   const client = supabase ?? await createClient()
 
-  // Step 1: get group IDs (must be serial — need IDs for next queries)
+  // Single RPC call — replaces 3 sequential queries
+  // Falls back to multi-query approach if RPC doesn't exist yet
+  const { data, error } = await client.rpc('get_groups_for_user', { p_user_id: userId })
+
+  if (error) {
+    // Fallback: if RPC not deployed yet, use parallel queries
+    if (error.code === '42883') {
+      return getGroupsForUserFallback(userId, client)
+    }
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data: (data ?? []) as GroupWithMemberCount[] }
+}
+
+async function getGroupsForUserFallback(
+  userId: string,
+  client: SupabaseClient
+): Promise<Result<GroupWithMemberCount[]>> {
   const { data: memberships, error: memError } = await client
     .from('group_members')
     .select('group_id')
@@ -48,7 +66,6 @@ export async function getGroupsForUser(
   const groupIds = memberships.map(m => m.group_id)
   if (groupIds.length === 0) return { success: true, data: [] }
 
-  // Step 2+3: fetch groups AND member counts in parallel (saves 1 round trip)
   const [groupsResult, countsResult] = await Promise.all([
     client.from('groups').select('*').in('id', groupIds).order('created_at', { ascending: false }),
     client.from('group_members').select('group_id').in('group_id', groupIds),
@@ -62,12 +79,10 @@ export async function getGroupsForUser(
     countMap.set(row.group_id, (countMap.get(row.group_id) ?? 0) + 1)
   }
 
-  const result: GroupWithMemberCount[] = groupsResult.data.map(g => ({
-    ...g,
-    member_count: countMap.get(g.id) ?? 0,
-  }))
-
-  return { success: true, data: result }
+  return {
+    success: true,
+    data: groupsResult.data.map(g => ({ ...g, member_count: countMap.get(g.id) ?? 0 })),
+  }
 }
 
 export async function getGroupById(
@@ -170,3 +185,4 @@ export async function inviteMember(
 
   return { success: true, data: { message: '成員邀請成功' } }
 }
+
