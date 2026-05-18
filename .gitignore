@@ -41,3 +41,15 @@ next-env.d.ts
 
 # claude code local data
 .claude/
+
+# AI agent docs (not needed to run)
+AGENTS.md
+CLAUDE.md
+MEMORY.md
+REVIEW-CHECKLIST.md
+agent_docs/
+part4-notes-for-agent.md
+
+# debug/seed SQL (not needed to run)
+db/debug_rls.sql
+db/seed_mockdata.sql
