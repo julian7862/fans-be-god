@@ -1,32 +1,42 @@
 import { z } from 'zod'
 
+const optionalPositiveNumber = z
+  .union([z.number(), z.nan()])
+  .optional()
+  .transform(v => (typeof v === 'number' && !isNaN(v) && v > 0) ? v : undefined)
+
+const requiredPositiveNumber = z
+  .union([z.number(), z.nan()])
+  .refine(v => typeof v === 'number' && !isNaN(v) && v > 0, { message: '必須大於 0' })
+
 export const createProposalSchema = z.object({
   ticker: z.string().min(1, '請輸入股票代號'),
   stockName: z.string().min(1, '請輸入股票名稱'),
   market: z.string().optional(),
-  proposalPrice: z.number().positive('提案價格必須大於 0').optional(),
+  proposalPrice: optionalPositiveNumber,
   investmentThesis: z.string().min(20, '買進邏輯至少需要 20 個字'),
-  targetPrice: z.number().positive('目標價必須大於 0'),
-  stopLossPrice: z.number().positive('停損價必須大於 0').optional(),
+  targetPrice: requiredPositiveNumber,
+  stopLossPrice: optionalPositiveNumber,
   exitCondition: z.string().optional(),
-  expectedHoldingDays: z.number().int().positive().optional(),
+  expectedHoldingDays: z.union([z.number(), z.nan()]).optional().transform(v => (typeof v === 'number' && !isNaN(v) && v > 0) ? v : undefined),
 }).refine(
   data => data.stopLossPrice || data.exitCondition,
   { message: '請至少填寫停損價或退出條件', path: ['exitCondition'] }
 )
 
-export type CreateProposalInput = z.infer<typeof createProposalSchema>
+export type CreateProposalInput = z.input<typeof createProposalSchema>
+export type CreateProposalOutput = z.infer<typeof createProposalSchema>
 
 export const updateProposalSchema = z.object({
   ticker: z.string().min(1).optional(),
   stockName: z.string().min(1).optional(),
   market: z.string().optional(),
-  proposalPrice: z.number().positive().optional(),
+  proposalPrice: optionalPositiveNumber,
   investmentThesis: z.string().min(20).optional(),
-  targetPrice: z.number().positive().optional(),
-  stopLossPrice: z.number().positive().optional(),
+  targetPrice: optionalPositiveNumber,
+  stopLossPrice: optionalPositiveNumber,
   exitCondition: z.string().optional(),
-  expectedHoldingDays: z.number().int().positive().optional(),
+  expectedHoldingDays: z.union([z.number(), z.nan()]).optional().transform(v => (typeof v === 'number' && !isNaN(v) && v > 0) ? v : undefined),
 })
 
 export type UpdateProposalInput = z.infer<typeof updateProposalSchema>
