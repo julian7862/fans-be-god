@@ -59,10 +59,12 @@ export function BearReviewerPanel({
         </p>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="space-y-2">
         <Select value={selectedId} onValueChange={v => setSelectedId(v ?? '')}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="選擇成員" />
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="選擇成員">
+              {selectedId ? eligibleMembers.find(m => m.user_id === selectedId)?.users.display_name : '選擇成員'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {eligibleMembers.map(m => (
@@ -72,7 +74,7 @@ export function BearReviewerPanel({
             ))}
           </SelectContent>
         </Select>
-        <Button size="sm" onClick={handleAssign} disabled={loading || !selectedId}>
+        <Button size="sm" className="w-full" onClick={handleAssign} disabled={loading || !selectedId}>
           {loading ? '指定中...' : currentBearReviewerId ? '重新指定' : '指定反方'}
         </Button>
       </div>
