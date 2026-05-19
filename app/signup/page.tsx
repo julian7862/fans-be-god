@@ -40,7 +40,7 @@ export default function SignupPage() {
       return
     }
 
-    router.push('/groups')
+    router.push('/frontpage')
     router.refresh()
   }
 

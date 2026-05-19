@@ -7,7 +7,7 @@ export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (user) redirect('/groups')
+  if (user) redirect('/frontpage')
 
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center px-4 text-center">
