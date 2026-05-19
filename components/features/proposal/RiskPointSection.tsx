@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { addRiskPointAction, deleteRiskPointAction } from '@/app/proposals/[proposalId]/actions'
+import { addRiskPointAction, deleteRiskPointAction, updateRiskPointAction } from '@/app/proposals/[proposalId]/actions'
 import type { ProposalRiskPoint, RiskSeverity } from '@/types/proposal'
 
 const severityConfig: Record<RiskSeverity, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -81,9 +81,14 @@ export function RiskPointSection({ proposalId, riskPoints, currentUserId, minRis
                   </div>
                 </div>
                 {rp.user_id === currentUserId && (
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(rp.id)}>
-                    刪除
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => console.log('Edit:', rp.id)}>
+                      編輯
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(rp.id)}>
+                      刪除
+                    </Button>
+                  </div>
                 )}
               </div>
             </li>

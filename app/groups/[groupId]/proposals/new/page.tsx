@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getGroupMembers } from '@/lib/group/service'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProposalForm } from '@/components/features/proposal/ProposalForm'
@@ -13,6 +14,13 @@ export default async function NewProposalPage({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  // Check if user is a member of this group
+  const membersResult = await getGroupMembers(groupId)
+  const members = membersResult.success ? membersResult.data : []
+  const isMember = members.some(m => m.user_id === user.id)
+
+  if (!isMember) redirect('/frontpage')
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-8">

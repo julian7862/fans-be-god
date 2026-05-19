@@ -58,12 +58,17 @@ export default async function FrontPage() {
 
   if (!user) redirect('/login')
 
-  const result = await getGroupsForUser(user.id, supabase)
-  const groups = result.success ? result.data : []
+  // Fetch all groups (not just user's groups)
+  const { data: groups } = await supabase
+    .from('groups')
+    .select('id, name, description, owner_id, created_at')
+    .order('created_at', { ascending: false })
+
+  const allGroups = groups ?? []
 
   // Fetch performance data for each group
   const groupsWithPerformance = await Promise.all(
-    groups.map(async (group) => {
+    allGroups.map(async (group) => {
       const perfResult = await getGroupPerformance(group.id)
       const perf = perfResult.success ? perfResult.data : null
       const mockData = getMockDataByGroupId(group.id)
@@ -80,14 +85,14 @@ export default async function FrontPage() {
     <div className="container mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">投資小組績效總覽</h1>
-        <p className="text-muted-foreground">監控你的所有投資小組表現</p>
+        <p className="text-muted-foreground">所有投資小組的實時績效</p>
       </div>
 
-      {groups.length === 0 ? (
+      {allGroups.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground mb-4">你還沒有加入任何小組</p>
+          <p className="text-muted-foreground mb-4">目前還沒有任何投資小組</p>
           <Link href="/groups/new">
-            <Button>建立你的第一個小組</Button>
+            <Button>建立第一個小組</Button>
           </Link>
         </div>
       ) : (
@@ -121,9 +126,12 @@ export default async function FrontPage() {
             })}
           </div>
 
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-4 mt-8">
             <Link href="/groups">
               <Button variant="outline">管理小組</Button>
+            </Link>
+            <Link href="/groups/new">
+              <Button>建立新小組</Button>
             </Link>
           </div>
         </>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProposalsForGroup } from '@/lib/proposal/service'
+import { getGroupMembers } from '@/lib/group/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,13 @@ export default async function ProposalsPage({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  // Check if user is a member of this group
+  const membersResult = await getGroupMembers(groupId)
+  const members = membersResult.success ? membersResult.data : []
+  const isMember = members.some(m => m.user_id === user.id)
+
+  if (!isMember) redirect('/frontpage')
 
   const statusFilter = status as ProposalStatus | undefined
   const result = await getProposalsForGroup(groupId, statusFilter)

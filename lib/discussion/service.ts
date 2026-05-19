@@ -45,6 +45,34 @@ export async function getBullPoints(
   return { success: true, data: data as (ProposalBullPoint & { users: { display_name: string } })[] }
 }
 
+export async function updateBullPoint(
+  bullPointId: string,
+  userId: string,
+  content: string,
+  category?: string | null
+): Promise<Result<ProposalBullPoint>> {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('proposal_bull_points')
+    .select('user_id')
+    .eq('id', bullPointId)
+    .single()
+
+  if (!existing) return { success: false, error: '找不到此看多理由' }
+  if (existing.user_id !== userId) return { success: false, error: '只能編輯自己的看多理由' }
+
+  const { data, error } = await supabase
+    .from('proposal_bull_points')
+    .update({ content, category: category ?? null })
+    .eq('id', bullPointId)
+    .select()
+    .single()
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, data }
+}
+
 export async function deleteBullPoint(
   bullPointId: string,
   userId: string
@@ -111,6 +139,34 @@ export async function getRiskPoints(
   return { success: true, data: data as (ProposalRiskPoint & { users: { display_name: string } })[] }
 }
 
+export async function updateRiskPoint(
+  riskPointId: string,
+  userId: string,
+  content: string,
+  severity?: RiskSeverity
+): Promise<Result<ProposalRiskPoint>> {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('proposal_risk_points')
+    .select('user_id')
+    .eq('id', riskPointId)
+    .single()
+
+  if (!existing) return { success: false, error: '找不到此風險提醒' }
+  if (existing.user_id !== userId) return { success: false, error: '只能編輯自己的風險提醒' }
+
+  const { data, error } = await supabase
+    .from('proposal_risk_points')
+    .update({ content, severity: severity ?? 'medium' })
+    .eq('id', riskPointId)
+    .select()
+    .single()
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, data }
+}
+
 export async function deleteRiskPoint(
   riskPointId: string,
   userId: string
@@ -158,6 +214,57 @@ export async function addComment(
 
   if (error) return { success: false, error: error.message }
   return { success: true, data }
+}
+
+export async function updateComment(
+  commentId: string,
+  userId: string,
+  content: string
+): Promise<Result<ProposalComment>> {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('proposal_comments')
+    .select('user_id')
+    .eq('id', commentId)
+    .single()
+
+  if (!existing) return { success: false, error: '找不到此留言' }
+  if (existing.user_id !== userId) return { success: false, error: '只能編輯自己的留言' }
+
+  const { data, error } = await supabase
+    .from('proposal_comments')
+    .update({ content })
+    .eq('id', commentId)
+    .select()
+    .single()
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, data }
+}
+
+export async function deleteComment(
+  commentId: string,
+  userId: string
+): Promise<Result<{ message: string }>> {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('proposal_comments')
+    .select('user_id')
+    .eq('id', commentId)
+    .single()
+
+  if (!existing) return { success: false, error: '找不到此留言' }
+  if (existing.user_id !== userId) return { success: false, error: '只能刪除自己的留言' }
+
+  const { error } = await supabase
+    .from('proposal_comments')
+    .delete()
+    .eq('id', commentId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, data: { message: '已刪除' } }
 }
 
 export async function getComments(

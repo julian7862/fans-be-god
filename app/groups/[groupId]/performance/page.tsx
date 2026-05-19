@@ -137,49 +137,16 @@ export default async function PerformancePage({
       <div className="space-y-6">
         {/* Performance Chart - Always Show */}
         <div>
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <PerformanceChart
-                groupName={groupName}
-                data={displayData.performanceData}
-                currentReturnPct={displayData.groupAverageReturnPct}
-              />
-              {!perf || perf.totalConsensusStocks === 0 ? (
-                <p className="text-sm text-amber-600 dark:text-amber-500 mt-2">
-                  📊 目前顯示示例數據。完成交易結案後將顯示真實績效。
-                </p>
-              ) : null}
-            </div>
-
-            {/* Member Rankings */}
-            <div>
-              <Card className="h-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">成員平均報酬率排行</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {displayData.memberRankings.map((member, idx) => (
-                      <div key={member.userId} className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-baseline gap-1">
-                            <span className="font-semibold text-sm">{idx + 1}.</span>
-                            <p className="text-sm font-medium">{member.displayName}</p>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {member.tradeCount} 筆交易 · 勝率 {member.winRate}%
-                          </p>
-                        </div>
-                        <p className="text-right font-bold text-base whitespace-nowrap">
-                          {member.averageReturnPct > 0 ? '+' : ''}{member.averageReturnPct.toFixed(2)}%
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <PerformanceChart
+            groupName={groupName}
+            data={displayData.performanceData}
+            currentReturnPct={displayData.groupAverageReturnPct}
+          />
+          {!perf || perf.totalConsensusStocks === 0 ? (
+            <p className="text-sm text-amber-600 dark:text-amber-500 mt-2">
+              📊 目前顯示示例數據。完成交易結案後將顯示真實績效。
+            </p>
+          ) : null}
         </div>
 
         {/* Summary Cards - Show if there's real or mock data */}

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { addCommentAction } from '@/app/proposals/[proposalId]/actions'
+import { addCommentAction, updateCommentAction, deleteCommentAction } from '@/app/proposals/[proposalId]/actions'
 import type { ProposalComment, CommentType } from '@/types/proposal'
 
 const commentTypeLabels: Record<CommentType, string> = {
@@ -18,9 +18,10 @@ const commentTypeLabels: Record<CommentType, string> = {
 type CommentSectionProps = {
   proposalId: string
   comments: (ProposalComment & { users: { display_name: string } })[]
+  currentUserId: string
 }
 
-export function CommentSection({ proposalId, comments }: CommentSectionProps) {
+export function CommentSection({ proposalId, comments, currentUserId }: CommentSectionProps) {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,14 +51,26 @@ export function CommentSection({ proposalId, comments }: CommentSectionProps) {
         <div className="space-y-3">
           {comments.map(comment => (
             <div key={comment.id} className="rounded-lg border p-3">
-              <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{comment.users.display_name}</span>
-                {comment.comment_type !== 'general' && (
-                  <Badge variant="outline" className="text-xs">
-                    {commentTypeLabels[comment.comment_type]}
-                  </Badge>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{comment.users.display_name}</span>
+                  {comment.comment_type !== 'general' && (
+                    <Badge variant="outline" className="text-xs">
+                      {commentTypeLabels[comment.comment_type]}
+                    </Badge>
+                  )}
+                  <span>{new Date(comment.created_at).toLocaleDateString('zh-TW')}</span>
+                </div>
+                {comment.user_id === currentUserId && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => console.log('Edit:', comment.id)}>
+                      編輯
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => deleteCommentAction(comment.id, proposalId)}>
+                      刪除
+                    </Button>
+                  </div>
                 )}
-                <span>{new Date(comment.created_at).toLocaleDateString('zh-TW')}</span>
               </div>
               <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
             </div>

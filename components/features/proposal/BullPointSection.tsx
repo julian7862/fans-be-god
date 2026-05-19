@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { addBullPointAction, deleteBullPointAction } from '@/app/proposals/[proposalId]/actions'
+import { addBullPointAction, deleteBullPointAction, updateBullPointAction } from '@/app/proposals/[proposalId]/actions'
 import type { ProposalBullPoint } from '@/types/proposal'
 
 const categories = [
@@ -81,9 +81,14 @@ export function BullPointSection({ proposalId, bullPoints, currentUserId }: Bull
                   </div>
                 </div>
                 {bp.user_id === currentUserId && (
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(bp.id)}>
-                    刪除
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => console.log('Edit:', bp.id)}>
+                      編輯
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(bp.id)}>
+                      刪除
+                    </Button>
+                  </div>
                 )}
               </div>
             </li>

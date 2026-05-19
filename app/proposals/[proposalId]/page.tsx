@@ -60,7 +60,11 @@ export default async function ProposalDetailPage({
   const consensusCheck = consensusResult.success ? consensusResult.data : null
 
   const myMembership = members.find(m => m.user_id === user.id)
-  const canApprove = myMembership?.role === 'owner' || myMembership?.role === 'admin'
+
+  // Only group members can access proposals
+  if (!myMembership) redirect('/frontpage')
+
+  const canApprove = myMembership.role === 'owner' || myMembership.role === 'admin'
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
@@ -140,7 +144,7 @@ export default async function ProposalDetailPage({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <CommentSection proposalId={proposalId} comments={comments} />
+              <CommentSection proposalId={proposalId} comments={comments} currentUserId={user.id} />
             </CardContent>
           </Card>
         </div>

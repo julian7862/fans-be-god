@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getMemberRankings, getConsensusStockRankings } from '@/lib/performance/service'
+import { getConsensusStockRankings } from '@/lib/performance/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,12 +17,7 @@ export default async function RankingsPage({
 
   if (!user) redirect('/login')
 
-  const [memberResult, stockResult] = await Promise.all([
-    getMemberRankings(groupId),
-    getConsensusStockRankings(groupId),
-  ])
-
-  const memberRankings = memberResult.success ? memberResult.data : []
+  const stockResult = await getConsensusStockRankings(groupId)
   const stockRankings = stockResult.success ? stockResult.data : []
 
   return (
@@ -33,46 +28,6 @@ export default async function RankingsPage({
       </div>
 
       <div className="space-y-8">
-        {/* Member Rankings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">成員平均報酬率排行</CardTitle>
-            <p className="text-xs text-muted-foreground">需參與 ≥ 3 檔共識標的才列入排名</p>
-          </CardHeader>
-          <CardContent>
-            {memberRankings.length === 0 ? (
-              <p className="text-sm text-muted-foreground">尚無足夠資料</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>成員</TableHead>
-                    <TableHead>平均報酬率</TableHead>
-                    <TableHead>勝率</TableHead>
-                    <TableHead>交易數</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {memberRankings.map((m, i) => (
-                    <TableRow key={m.userId}>
-                      <TableCell className="font-medium">{i + 1}</TableCell>
-                      <TableCell>{m.displayName}</TableCell>
-                      <TableCell>
-                        <span className={m.averageReturnPct >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {m.averageReturnPct.toFixed(1)}%
-                        </span>
-                      </TableCell>
-                      <TableCell>{m.winRate.toFixed(0)}%</TableCell>
-                      <TableCell>{m.tradeCount}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Consensus Stock Rankings */}
         <Card>
           <CardHeader>

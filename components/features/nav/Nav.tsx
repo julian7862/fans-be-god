@@ -9,6 +9,9 @@ export function Nav() {
           共同選股研究室
         </Link>
         <nav className="flex items-center gap-4">
+          <Link href="/frontpage" className="text-sm hover:text-primary transition-colors">
+            績效總覽
+          </Link>
           <AuthStatus />
         </nav>
       </div>
