@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getGroupPerformance, getMemberRankings } from '@/lib/performance/service'
+import { getGroupPerformance } from '@/lib/performance/service'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PerformanceChart } from '@/components/features/performance/PerformanceChart'
@@ -95,36 +95,17 @@ export default async function PerformancePage({
 
   if (!user) redirect('/login')
 
-  // 假資料：用戶所屬的小組列表（實際應從數據庫查詢）
-  const MOCK_USER_GROUPS = [
-    { id: '1', name: '科技股研究小組' },
-    { id: '2', name: '消費股研究小組' },
-  ]
+  const { data: userGroups } = await supabase
+    .from('group_members')
+    .select('groups(id, name)')
+    .eq('user_id', user.id)
 
-  // 獲取用戶所屬的所有小組
-  // const { data: userGroups } = await supabase
-  //   .from('group_members')
-  //   .select('groups(id, name)')
-  //   .eq('user_id', user.id)
-
-  // const groups = userGroups?.map(m => (m.groups as unknown as { id: string; name: string })).filter(Boolean) ?? []
-
-  // 使用假資料進行測試
-  const groups = MOCK_USER_GROUPS
+  const groups = userGroups?.map(m => (m.groups as unknown as { id: string; name: string })).filter(Boolean) ?? []
 
   const result = await getGroupPerformance(groupId)
   const perf = result.success ? result.data : null
 
-  // 獲取當前小組名稱
-  // const { data: group } = await supabase
-  //   .from('groups')
-  //   .select('name')
-  //   .eq('id', groupId)
-  //   .single()
-
-  // 使用假資料進行測試
-  const currentGroupData = MOCK_USER_GROUPS.find(g => g.id === groupId)
-  const groupName = currentGroupData?.name ?? '未命名小組'
+  const groupName = groups.find(g => g.id === groupId)?.name ?? '未命名小組'
 
   // 獲取該小組的假資料
   const mockData = getMockDataByGroupId(groupId)
