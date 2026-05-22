@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { getGroupsForUser } from '@/lib/group/service'
 import { getGroupPerformance } from '@/lib/performance/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -99,7 +98,7 @@ export default async function FrontPage() {
         <>
           <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 mb-8">
             {groupsWithPerformance.map((group) => {
-              const displayData = group.performance || group.mockData
+              const currentReturnPct = group.performance?.groupAverageReturnPct ?? group.mockData.currentReturnPct
 
               return (
                 <div key={group.id} className="space-y-4">
@@ -112,8 +111,8 @@ export default async function FrontPage() {
 
                   <PerformanceChart
                     groupName={group.name}
-                    data={displayData.performanceData}
-                    currentReturnPct={displayData.groupAverageReturnPct ?? displayData.currentReturnPct}
+                    data={group.mockData.performanceData}
+                    currentReturnPct={currentReturnPct}
                   />
 
                   {!group.performance ? (

@@ -30,6 +30,11 @@ export function BullPointSection({ proposalId, bullPoints, currentUserId }: Bull
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editPending, startEditTransition] = useTransition()
+
   const [optimisticPoints, addOptimisticPoint] = useOptimistic(
     bullPoints,
     (current: typeof bullPoints, newPoint: { content: string; category: string }): typeof bullPoints => [
@@ -60,6 +65,29 @@ export function BullPointSection({ proposalId, bullPoints, currentUserId }: Bull
     })
   }
 
+  function startEdit(bp: typeof bullPoints[number]) {
+    setEditingId(bp.id)
+    setEditContent(bp.content)
+    setEditCategory(bp.category ?? '')
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditContent('')
+    setEditCategory('')
+  }
+
+  function handleEdit(id: string) {
+    if (!editContent.trim()) return
+    startEditTransition(async () => {
+      const formData = new FormData()
+      formData.set('content', editContent.trim())
+      if (editCategory) formData.set('category', editCategory)
+      const result = await updateBullPointAction(id, proposalId, formData)
+      if (!result?.error) cancelEdit()
+    })
+  }
+
   async function handleDelete(id: string) {
     await deleteBullPointAction(id, proposalId)
   }
@@ -72,25 +100,53 @@ export function BullPointSection({ proposalId, bullPoints, currentUserId }: Bull
         <ul className="space-y-3">
           {optimisticPoints.map(bp => (
             <li key={bp.id} className="rounded-lg border p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="text-sm">{bp.content}</p>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{bp.users.display_name}</span>
-                    {bp.category && <Badge variant="outline" className="text-xs">{categories.find(c => c.value === bp.category)?.label ?? bp.category}</Badge>}
+              {editingId === bp.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editContent}
+                    onChange={e => setEditContent(e.target.value)}
+                    rows={2}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Select value={editCategory} onValueChange={v => setEditCategory(v ?? '')}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="分類" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(c => (
+                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={() => handleEdit(bp.id)} disabled={editPending || !editContent.trim()}>
+                      {editPending ? '儲存中...' : '儲存'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={editPending}>
+                      取消
+                    </Button>
                   </div>
                 </div>
-                {bp.user_id === currentUserId && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => console.log('Edit:', bp.id)}>
-                      編輯
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(bp.id)}>
-                      刪除
-                    </Button>
+              ) : (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm">{bp.content}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{bp.users.display_name}</span>
+                      {bp.category && <Badge variant="outline" className="text-xs">{categories.find(c => c.value === bp.category)?.label ?? bp.category}</Badge>}
+                    </div>
                   </div>
-                )}
-              </div>
+                  {bp.user_id === currentUserId && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => startEdit(bp)}>
+                        編輯
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(bp.id)}>
+                        刪除
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -28,6 +28,13 @@ export function RiskPointSection({ proposalId, riskPoints, currentUserId, minRis
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [editSeverity, setEditSeverity] = useState<RiskSeverity>('medium')
+  const [editPending, startEditTransition] = useTransition()
+
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const insufficient = riskPoints.length < minRiskRequired
 
   async function handleAdd() {
@@ -49,8 +56,33 @@ export function RiskPointSection({ proposalId, riskPoints, currentUserId, minRis
     setLoading(false)
   }
 
+  function startEdit(rp: typeof riskPoints[number]) {
+    setEditingId(rp.id)
+    setEditContent(rp.content)
+    setEditSeverity(rp.severity)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditContent('')
+    setEditSeverity('medium')
+  }
+
+  function handleEdit(id: string) {
+    if (!editContent.trim()) return
+    startEditTransition(async () => {
+      const formData = new FormData()
+      formData.set('content', editContent.trim())
+      formData.set('severity', editSeverity)
+      const result = await updateRiskPointAction(id, proposalId, formData)
+      if (!result?.error) cancelEdit()
+    })
+  }
+
   async function handleDelete(id: string) {
+    setDeletingId(id)
     await deleteRiskPointAction(id, proposalId)
+    setDeletingId(null)
   }
 
   return (
@@ -69,28 +101,57 @@ export function RiskPointSection({ proposalId, riskPoints, currentUserId, minRis
         <ul className="space-y-3">
           {riskPoints.map(rp => (
             <li key={rp.id} className="rounded-lg border p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="text-sm">{rp.content}</p>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{rp.users.display_name}</span>
-                    <Badge variant={severityConfig[rp.severity].variant} className="text-xs">
-                      {severityConfig[rp.severity].label}
-                    </Badge>
-                    {rp.happened && <Badge variant="destructive" className="text-xs">已發生</Badge>}
+              {editingId === rp.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editContent}
+                    onChange={e => setEditContent(e.target.value)}
+                    rows={2}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Select value={editSeverity} onValueChange={v => setEditSeverity((v ?? 'medium') as RiskSeverity)}>
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue placeholder="嚴重度" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">低</SelectItem>
+                        <SelectItem value="medium">中</SelectItem>
+                        <SelectItem value="high">高</SelectItem>
+                        <SelectItem value="critical">嚴重</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={() => handleEdit(rp.id)} disabled={editPending || !editContent.trim()}>
+                      {editPending ? '儲存中...' : '儲存'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={editPending}>
+                      取消
+                    </Button>
                   </div>
                 </div>
-                {rp.user_id === currentUserId && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => console.log('Edit:', rp.id)}>
-                      編輯
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(rp.id)}>
-                      刪除
-                    </Button>
+              ) : (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm">{rp.content}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{rp.users.display_name}</span>
+                      <Badge variant={severityConfig[rp.severity].variant} className="text-xs">
+                        {severityConfig[rp.severity].label}
+                      </Badge>
+                      {rp.happened && <Badge variant="destructive" className="text-xs">已發生</Badge>}
+                    </div>
                   </div>
-                )}
-              </div>
+                  {rp.user_id === currentUserId && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => startEdit(rp)}>
+                        編輯
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(rp.id)} disabled={deletingId === rp.id}>
+                        {deletingId === rp.id ? '刪除中...' : '刪除'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>
