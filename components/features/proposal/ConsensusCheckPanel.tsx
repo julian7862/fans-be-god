@@ -9,12 +9,14 @@ type ConsensusCheckPanelProps = {
   proposalId: string
   checkResult: ConsensusCheckResult
   canApprove: boolean
+  proposalStatus: string
   onApprove: (proposalId: string) => Promise<{ error?: string; success?: boolean }>
 }
 
-export function ConsensusCheckPanel({ proposalId, checkResult, canApprove, onApprove }: ConsensusCheckPanelProps) {
+export function ConsensusCheckPanel({ proposalId, checkResult, canApprove, proposalStatus, onApprove }: ConsensusCheckPanelProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [approved, setApproved] = useState(false)
 
   async function handleApprove() {
     setLoading(true)
@@ -23,9 +25,13 @@ export function ConsensusCheckPanel({ proposalId, checkResult, canApprove, onApp
     const result = await onApprove(proposalId)
     if (result?.error) {
       setError(result.error)
+    } else {
+      setApproved(true)
     }
     setLoading(false)
   }
+
+  const isApproved = proposalStatus === 'approved' || approved
 
   return (
     <div className="space-y-3">
@@ -84,12 +90,16 @@ export function ConsensusCheckPanel({ proposalId, checkResult, canApprove, onApp
         </div>
       )}
 
-      {/* Approve button */}
-      {checkResult.passed && canApprove && (
+      {/* Approve button / approved state */}
+      {isApproved ? (
+        <div className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 dark:bg-green-950">
+          <span className="text-sm font-medium text-green-700 dark:text-green-300">✓ 已核准進入共識名單</span>
+        </div>
+      ) : checkResult.passed && canApprove ? (
         <Button size="sm" className="w-full" onClick={handleApprove} disabled={loading}>
           {loading ? '核准中...' : '核准進入共識名單'}
         </Button>
-      )}
+      ) : null}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>

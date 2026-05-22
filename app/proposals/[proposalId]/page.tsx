@@ -260,6 +260,7 @@ export default async function ProposalDetailPage({
                   proposalId={proposalId}
                   checkResult={consensusCheck}
                   canApprove={canApprove}
+                  proposalStatus={proposal.status}
                   onApprove={approveProposalAction}
                 />
               </CardContent>

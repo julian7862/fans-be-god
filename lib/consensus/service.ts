@@ -131,6 +131,9 @@ export async function approveProposal(
     .single()
 
   if (!proposal) return { success: false, error: '找不到此提案' }
+  if (proposal.status === 'approved') {
+    return { success: false, error: '此提案已核准，無法重複操作' }
+  }
 
   const { data: membership } = await supabase
     .from('group_members')
