@@ -1,29 +1,52 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginInput } from '@/lib/validation/authSchema'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+
+const KEY_EMAIL = 'login_remembered_email'
+const KEY_PASSWORD = 'login_remembered_password'
 
 export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   })
+
+  useEffect(() => {
+    const email = localStorage.getItem(KEY_EMAIL) ?? ''
+    const password = localStorage.getItem(KEY_PASSWORD) ?? ''
+    if (email) {
+      setValue('email', email)
+      setKeepLoggedIn(true)
+    }
+    if (password) setValue('password', password)
+  }, [setValue])
 
   async function onSubmit(data: LoginInput) {
     setLoading(true)
     setError(null)
+
+    if (keepLoggedIn) {
+      localStorage.setItem(KEY_EMAIL, data.email)
+      localStorage.setItem(KEY_PASSWORD, data.password)
+    } else {
+      localStorage.removeItem(KEY_EMAIL)
+      localStorage.removeItem(KEY_PASSWORD)
+    }
 
     const supabase = createClient()
     const { error: authError } = await supabase.auth.signInWithPassword({
@@ -73,6 +96,15 @@ export default function LoginPage() {
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="keepLoggedIn"
+                checked={keepLoggedIn}
+                onCheckedChange={(v) => setKeepLoggedIn(v === true)}
+              />
+              <Label htmlFor="keepLoggedIn" className="cursor-pointer font-normal">保持登入狀態</Label>
             </div>
 
             {error && (
