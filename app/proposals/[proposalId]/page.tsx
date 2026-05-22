@@ -65,6 +65,7 @@ export default async function ProposalDetailPage({
   if (!myMembership) redirect('/frontpage')
 
   const canApprove = myMembership.role === 'owner' || myMembership.role === 'admin'
+  const canEdit = proposal.proposer_id === user.id || canApprove
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
@@ -80,9 +81,16 @@ export default async function ProposalDetailPage({
             <Badge variant="outline" className="mt-1">{proposal.market}</Badge>
           )}
         </div>
-        <Link href={`/groups/${proposal.group_id}/proposals`}>
-          <Button variant="outline" size="sm">返回提案池</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Link href={`/proposals/${proposalId}/edit`}>
+              <Button variant="outline" size="sm">編輯提案</Button>
+            </Link>
+          )}
+          <Link href={`/groups/${proposal.group_id}/proposals`}>
+            <Button variant="outline" size="sm">返回提案池</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

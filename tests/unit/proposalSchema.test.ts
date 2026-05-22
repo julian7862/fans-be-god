@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createProposalSchema } from '@/lib/validation/proposalSchema'
+import { createProposalSchema, updateProposalSchema } from '@/lib/validation/proposalSchema'
 
 describe('createProposalSchema', () => {
   const validBase = {
@@ -127,5 +127,66 @@ describe('createProposalSchema', () => {
     })
     // String '1000' should fail since schema expects number
     expect(result.success).toBe(false)
+  })
+})
+
+describe('updateProposalSchema', () => {
+  it('passes with empty object — all fields are optional', () => {
+    expect(updateProposalSchema.safeParse({}).success).toBe(true)
+  })
+
+  it('passes with only ticker', () => {
+    expect(updateProposalSchema.safeParse({ ticker: '2330' }).success).toBe(true)
+  })
+
+  it('passes with all fields provided', () => {
+    const result = updateProposalSchema.safeParse({
+      ticker: '2330',
+      stockName: '台積電',
+      market: '台股',
+      proposalPrice: 900,
+      investmentThesis: '這是一個超過二十個字的買進邏輯說明，用來通過驗證',
+      targetPrice: 1000,
+      stopLossPrice: 800,
+      exitCondition: '跌破月線出場',
+      expectedHoldingDays: 90,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('fails when ticker is empty string', () => {
+    expect(updateProposalSchema.safeParse({ ticker: '' }).success).toBe(false)
+  })
+
+  it('fails when investmentThesis is too short', () => {
+    expect(updateProposalSchema.safeParse({ investmentThesis: '太短' }).success).toBe(false)
+  })
+
+  it('treats NaN targetPrice as undefined (optional)', () => {
+    const result = updateProposalSchema.safeParse({ targetPrice: NaN })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.targetPrice).toBeUndefined()
+  })
+
+  it('treats NaN stopLossPrice as undefined (optional)', () => {
+    const result = updateProposalSchema.safeParse({ stopLossPrice: NaN })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.stopLossPrice).toBeUndefined()
+  })
+
+  it('treats NaN proposalPrice as undefined (optional)', () => {
+    const result = updateProposalSchema.safeParse({ proposalPrice: NaN })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.proposalPrice).toBeUndefined()
+  })
+
+  it('treats NaN expectedHoldingDays as undefined (optional)', () => {
+    const result = updateProposalSchema.safeParse({ expectedHoldingDays: NaN })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.expectedHoldingDays).toBeUndefined()
+  })
+
+  it('rejects raw string for number fields (FormData must be converted first)', () => {
+    expect(updateProposalSchema.safeParse({ targetPrice: '1000' as unknown }).success).toBe(false)
   })
 })

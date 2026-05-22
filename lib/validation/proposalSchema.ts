@@ -40,3 +40,4 @@ export const updateProposalSchema = z.object({
 })
 
 export type UpdateProposalInput = z.infer<typeof updateProposalSchema>
+export type UpdateProposalFormInput = z.input<typeof updateProposalSchema>

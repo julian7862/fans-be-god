@@ -229,13 +229,42 @@ export async function updateProposalAction(proposalId: string, formData: FormDat
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: '請先登入' }
 
-  const data = Object.fromEntries(formData)
-  const parsed = updateProposalSchema.safeParse(data)
+  const toNum = (v: FormDataEntryValue | null) => {
+    if (!v || v === '') return undefined
+    const n = Number(v)
+    return isNaN(n) ? undefined : n
+  }
+
+  const raw = {
+    ticker: formData.get('ticker') || undefined,
+    stockName: formData.get('stockName') || undefined,
+    market: formData.get('market') || undefined,
+    proposalPrice: toNum(formData.get('proposalPrice')),
+    investmentThesis: formData.get('investmentThesis') || undefined,
+    targetPrice: toNum(formData.get('targetPrice')),
+    stopLossPrice: toNum(formData.get('stopLossPrice')),
+    exitCondition: formData.get('exitCondition') || undefined,
+    expectedHoldingDays: toNum(formData.get('expectedHoldingDays')),
+  }
+
+  const parsed = updateProposalSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: '輸入資料驗證失敗' }
   }
 
-  const result = await updateProposal(proposalId, user.id, parsed.data)
+  const { stockName, proposalPrice, investmentThesis, targetPrice, stopLossPrice, exitCondition, expectedHoldingDays, ...rest } = parsed.data
+  const updates = {
+    ...rest,
+    ...(stockName !== undefined && { stock_name: stockName }),
+    ...(proposalPrice !== undefined && { proposal_price: proposalPrice }),
+    ...(investmentThesis !== undefined && { investment_thesis: investmentThesis }),
+    ...(targetPrice !== undefined && { target_price: targetPrice }),
+    ...(stopLossPrice !== undefined && { stop_loss_price: stopLossPrice }),
+    ...(exitCondition !== undefined && { exit_condition: exitCondition }),
+    ...(expectedHoldingDays !== undefined && { expected_holding_days: expectedHoldingDays }),
+  }
+
+  const result = await updateProposal(proposalId, user.id, updates)
   if (!result.success) return { error: result.error }
 
   revalidatePath(`/proposals/${proposalId}`)

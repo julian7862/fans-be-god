@@ -101,14 +101,26 @@ export async function updateProposal(
 
   const { data: existing } = await supabase
     .from('stock_proposals')
-    .select('proposer_id, status')
+    .select('proposer_id, status, group_id')
     .eq('id', proposalId)
     .single()
 
   if (!existing) return { success: false, error: '找不到此提案' }
-  if (existing.proposer_id !== userId) return { success: false, error: '只有提案人可以編輯' }
   if (!['draft', 'submitted'].includes(existing.status)) {
     return { success: false, error: '此提案狀態下無法編輯' }
+  }
+
+  const isProposer = existing.proposer_id === userId
+  if (!isProposer) {
+    const { data: membership } = await supabase
+      .from('group_members')
+      .select('role')
+      .eq('group_id', existing.group_id)
+      .eq('user_id', userId)
+      .single()
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      return { success: false, error: '只有提案人或小組管理員可以編輯' }
+    }
   }
 
   const { data, error } = await supabase
