@@ -4,113 +4,131 @@ import { computeVoteOutcome } from '@/lib/consensus/voteHelpers'
 const base = {
   agreeThreshold: 0.6,
   scoreThreshold: 60,
+  maxVotes: 5,
 }
 
 describe('computeVoteOutcome', () => {
-  // ── 自動觸發（forceByAdmin: false）──────────────────────────────
+  // ── 自動觸發：任一方過半 ──────────────────────────────────────────
 
-  it('未全員投票時回傳 allVoted: false，不判定結果', () => {
+  it('同意票過半立即觸發並通過', () => {
     const result = computeVoteOutcome({
       ...base,
-      votes: ['agree', 'agree'],
-      scores: [80, 70],
-      memberCount: 5,
+      votes: ['agree', 'agree', 'agree', 'disagree'],  // 3/4 > 50%
+      scores: [80, 70, 75, 60],
       forceByAdmin: false,
     })
-    expect(result.allVoted).toBe(false)
+    expect(result.triggered).toBe(true)
+    expect(result.passed).toBe(true)
+    expect(result.agreeRatio).toBeCloseTo(0.75)
+  })
+
+  it('反對票過半立即觸發並不通過', () => {
+    const result = computeVoteOutcome({
+      ...base,
+      votes: ['disagree', 'disagree', 'disagree', 'agree'],  // 3/4 disagree > 50%
+      scores: [80, 70, 75, 60],
+      forceByAdmin: false,
+    })
+    expect(result.triggered).toBe(true)
     expect(result.passed).toBe(false)
   })
 
-  it('全員投票且通過門檻回傳 passed: true', () => {
+  it('未過半且未達 maxVotes，不觸發', () => {
     const result = computeVoteOutcome({
       ...base,
-      votes: ['agree', 'agree', 'agree', 'disagree', 'agree'],
-      scores: [70, 65, 80, 60, 75],
-      memberCount: 5,
+      votes: ['agree', 'disagree'],  // 1:1, 無過半
+      scores: [80, 60],
       forceByAdmin: false,
     })
-    expect(result.allVoted).toBe(true)
+    expect(result.triggered).toBe(false)
+  })
+
+  // ── 自動觸發：達到 maxVotes ──────────────────────────────────────
+
+  it('達到 5 票觸發，同意多則通過', () => {
+    const result = computeVoteOutcome({
+      ...base,
+      votes: ['agree', 'agree', 'agree', 'disagree', 'disagree'],
+      scores: [70, 65, 80, 60, 75],
+      forceByAdmin: false,
+    })
+    expect(result.triggered).toBe(true)
+    expect(result.agreeRatio).toBeCloseTo(0.6)
     expect(result.passed).toBe(true)
   })
 
-  it('全員投票但同意比例不足回傳 passed: false', () => {
+  it('達到 5 票觸發，反對多則不通過', () => {
     const result = computeVoteOutcome({
       ...base,
       votes: ['agree', 'disagree', 'disagree', 'disagree', 'agree'],
       scores: [70, 65, 80, 60, 75],
-      memberCount: 5,
       forceByAdmin: false,
     })
-    expect(result.allVoted).toBe(true)
+    expect(result.triggered).toBe(true)
     expect(result.passed).toBe(false)
-    expect(result.agreeRatio).toBeCloseTo(0.4)
-  })
-
-  it('全員投票但平均評分不足回傳 passed: false', () => {
-    const result = computeVoteOutcome({
-      ...base,
-      votes: ['agree', 'agree', 'agree', 'agree', 'agree'],
-      scores: [40, 50, 45, 55, 50],
-      memberCount: 5,
-      forceByAdmin: false,
-    })
-    expect(result.allVoted).toBe(true)
-    expect(result.passed).toBe(false)
-    expect(result.averageScore).toBe(48)
   })
 
   // ── 手動觸發（forceByAdmin: true）────────────────────────────────
 
-  it('forceByAdmin 不檢查 memberCount，有投票就判定', () => {
+  it('forceByAdmin 只有 2 票也觸發', () => {
     const result = computeVoteOutcome({
       ...base,
       votes: ['agree', 'agree'],
       scores: [80, 70],
-      memberCount: 5,   // 只有 2 人投票，但 forceByAdmin
       forceByAdmin: true,
     })
-    expect(result.allVoted).toBe(true)
+    expect(result.triggered).toBe(true)
     expect(result.passed).toBe(true)
   })
 
-  it('forceByAdmin 且投票不通過仍回傳 passed: false', () => {
+  it('forceByAdmin 且同意率不足仍不通過', () => {
     const result = computeVoteOutcome({
       ...base,
       votes: ['disagree', 'disagree'],
       scores: [30, 40],
-      memberCount: 5,
       forceByAdmin: true,
     })
-    expect(result.allVoted).toBe(true)
+    expect(result.triggered).toBe(true)
     expect(result.passed).toBe(false)
+  })
+
+  // ── 忽略非 agree/disagree 票 ────────────────────────────────────
+
+  it('need_more_info 和 watch_later 不計入票數', () => {
+    const result = computeVoteOutcome({
+      ...base,
+      votes: ['need_more_info', 'watch_later', 'agree', 'agree', 'agree', 'disagree'],
+      scores: [80, 70, 75, 65, 80, 60],
+      forceByAdmin: false,
+    })
+    // 有效票：4 票（3 agree + 1 disagree），3/4 > 50%
+    expect(result.triggered).toBe(true)
+    expect(result.passed).toBe(true)
+    expect(result.agreeCount).toBe(3)
+    expect(result.disagreeCount).toBe(1)
   })
 
   // ── Edge cases ───────────────────────────────────────────────────
 
-  it('無投票記錄時 agreeRatio 為 0', () => {
+  it('無投票不觸發', () => {
     const result = computeVoteOutcome({
       ...base,
       votes: [],
       scores: [],
-      memberCount: 5,
-      forceByAdmin: true,
-    })
-    expect(result.agreeRatio).toBe(0)
-    expect(result.averageScore).toBe(0)
-    expect(result.passed).toBe(false)
-  })
-
-  it('正好達到門檻視為通過', () => {
-    const result = computeVoteOutcome({
-      ...base,
-      votes: ['agree', 'agree', 'agree', 'disagree', 'disagree'],
-      scores: [60, 60, 60, 60, 60],
-      memberCount: 5,
       forceByAdmin: false,
     })
-    expect(result.allVoted).toBe(true)
-    expect(result.agreeRatio).toBeCloseTo(0.6)
-    expect(result.averageScore).toBe(60)
-    expect(result.passed).toBe(true)
+    expect(result.triggered).toBe(false)
+    expect(result.agreeRatio).toBe(0)
+  })
+
+  it('forceByAdmin 無投票也觸發但不通過', () => {
+    const result = computeVoteOutcome({
+      ...base,
+      votes: [],
+      scores: [],
+      forceByAdmin: true,
+    })
+    expect(result.triggered).toBe(true)
+    expect(result.passed).toBe(false)
   })
 })

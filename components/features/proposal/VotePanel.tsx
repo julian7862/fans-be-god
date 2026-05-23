@@ -9,26 +9,20 @@ import type { ProposalVote, VoteValue } from '@/types/proposal'
 const voteOptions: { value: VoteValue; label: string; emoji: string }[] = [
   { value: 'agree', label: '同意', emoji: '👍' },
   { value: 'disagree', label: '反對', emoji: '👎' },
-  { value: 'need_more_info', label: '需要更多資訊', emoji: '❓' },
-  { value: 'watch_later', label: '先觀察', emoji: '👀' },
 ]
 
 type VotePanelProps = {
   proposalId: string
   myVote: ProposalVote | null
   allVotes: (ProposalVote & { users: { display_name: string } })[]
-  canFinalize: boolean
   onSubmitVote: (proposalId: string, formData: FormData) => Promise<{ error?: string; success?: boolean }>
-  onFinalizeVote: (proposalId: string) => Promise<{ error?: string; result?: 'rejected' | 'passed' }>
 }
 
-export function VotePanel({ proposalId, myVote, allVotes, canFinalize, onSubmitVote, onFinalizeVote }: VotePanelProps) {
+export function VotePanel({ proposalId, myVote, allVotes, onSubmitVote }: VotePanelProps) {
   const [selectedVote, setSelectedVote] = useState<VoteValue | null>(myVote?.vote ?? null)
   const [reason, setReason] = useState(myVote?.reason ?? '')
   const [error, setError] = useState<string | null>(null)
-  const [finalizeResult, setFinalizeResult] = useState<'rejected' | 'passed' | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [isFinalizePending, startFinalizeTransition] = useTransition()
 
   const [optimisticVotes, addOptimisticVote] = useOptimistic(
     allVotes,
@@ -63,18 +57,6 @@ export function VotePanel({ proposalId, myVote, allVotes, canFinalize, onSubmitV
     })
   }
 
-  function handleFinalize() {
-    setError(null)
-    startFinalizeTransition(async () => {
-      const result = await onFinalizeVote(proposalId)
-      if (result?.error) {
-        setError(result.error)
-      } else if (result?.result) {
-        setFinalizeResult(result.result)
-      }
-    })
-  }
-
   return (
     <div className="space-y-4">
       {/* Summary */}
@@ -91,7 +73,6 @@ export function VotePanel({ proposalId, myVote, allVotes, canFinalize, onSubmitV
             variant={selectedVote === opt.value ? 'default' : 'outline'}
             size="sm"
             onClick={() => setSelectedVote(opt.value)}
-            className="text-xs"
           >
             {opt.emoji} {opt.label}
           </Button>
@@ -116,31 +97,6 @@ export function VotePanel({ proposalId, myVote, allVotes, canFinalize, onSubmitV
         {isPending ? '送出中...' : myVote ? '更新投票' : '投票'}
       </Button>
 
-      {/* Admin: finalize vote */}
-      {canFinalize && !finalizeResult && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={handleFinalize}
-          disabled={isFinalizePending}
-        >
-          {isFinalizePending ? '判定中...' : '結束投票並判定結果'}
-        </Button>
-      )}
-
-      {/* Finalize result */}
-      {finalizeResult === 'rejected' && (
-        <div className="rounded-md bg-red-50 px-3 py-2 dark:bg-red-950">
-          <p className="text-sm font-medium text-red-700 dark:text-red-300">✗ 已判定為未通過</p>
-        </div>
-      )}
-      {finalizeResult === 'passed' && (
-        <div className="rounded-md bg-green-50 px-3 py-2 dark:bg-green-950">
-          <p className="text-sm font-medium text-green-700 dark:text-green-300">✓ 投票通過門檻，請進行核准</p>
-        </div>
-      )}
-
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {/* Vote list */}
@@ -151,7 +107,7 @@ export function VotePanel({ proposalId, myVote, allVotes, canFinalize, onSubmitV
             {optimisticVotes.map(v => (
               <div key={v.id} className="flex justify-between text-xs">
                 <span>{v.users.display_name}</span>
-                <span>{voteOptions.find(o => o.value === v.vote)?.emoji} {voteOptions.find(o => o.value === v.vote)?.label}</span>
+                <span>{voteOptions.find(o => o.value === v.vote)?.emoji} {voteOptions.find(o => o.value === v.vote)?.label ?? v.vote}</span>
               </div>
             ))}
           </div>

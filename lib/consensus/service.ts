@@ -228,34 +228,126 @@ export async function evaluateVoteResult(
     .select('total_score')
     .eq('proposal_id', proposalId)
 
-  let memberCount = Infinity
-  if (!options.forceByAdmin) {
-    const { count } = await supabase
-      .from('group_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('group_id', proposal.group_id)
-    memberCount = count ?? 0
-  }
-
   const outcome = computeVoteOutcome({
     votes: votes?.map(v => v.vote) ?? [],
     scores: scores?.map(s => s.total_score).filter((s): s is number => s !== null) ?? [],
-    memberCount,
     agreeThreshold: group.consensus_agree_threshold,
     scoreThreshold: group.consensus_score_threshold,
     forceByAdmin: options.forceByAdmin,
   })
 
-  if (!outcome.allVoted) {
-    return { success: true, data: { allVoted: false, passed: false, rejected: false, agreeRatio: outcome.agreeRatio, averageScore: outcome.averageScore } }
+  if (!outcome.triggered) {
+    return { success: true, data: { allVoted: false, passed: false, rejected: false, agreeRatio: outcome.agreeRatio, averageScore: 0 } }
   }
 
   if (!outcome.passed) {
     await updateProposalStatus(proposalId, 'rejected', userId)
-    return { success: true, data: { allVoted: true, passed: false, rejected: true, agreeRatio: outcome.agreeRatio, averageScore: outcome.averageScore } }
+    return { success: true, data: { allVoted: true, passed: false, rejected: true, agreeRatio: outcome.agreeRatio, averageScore: 0 } }
   }
 
-  return { success: true, data: { allVoted: true, passed: true, rejected: false, agreeRatio: outcome.agreeRatio, averageScore: outcome.averageScore } }
+  return { success: true, data: { allVoted: true, passed: true, rejected: false, agreeRatio: outcome.agreeRatio, averageScore: 0 } }
+}
+
+// ─── Force Actions (admin bypass) ───────────────────────────────
+
+async function createConsensusStockRecord(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  proposal: Record<string, unknown>
+): Promise<Result<ConsensusStock>> {
+  const { data: consensusStock, error: insertError } = await supabase
+    .from('consensus_stocks')
+    .insert({
+      proposal_id: proposal.id,
+      group_id: proposal.group_id,
+      ticker: proposal.ticker,
+      stock_name: proposal.stock_name,
+      market: proposal.market,
+      consensus_price: proposal.proposal_price,
+      consensus_reason: proposal.investment_thesis,
+      consensus_target_price: proposal.target_price,
+      consensus_stop_loss_price: proposal.stop_loss_price,
+      status: 'active',
+    })
+    .select()
+    .single()
+
+  if (insertError) return { success: false, error: insertError.message }
+  return { success: true, data: consensusStock as ConsensusStock }
+}
+
+export async function forceApproveProposal(
+  proposalId: string,
+  userId: string
+): Promise<Result<ConsensusStock>> {
+  const supabase = await createClient()
+
+  const { data: proposal } = await supabase
+    .from('stock_proposals')
+    .select('*')
+    .eq('id', proposalId)
+    .single()
+
+  if (!proposal) return { success: false, error: '找不到此提案' }
+  if (['approved', 'rejected', 'closed'].includes(proposal.status)) {
+    return { success: false, error: '此提案狀態無法核准' }
+  }
+
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', proposal.group_id)
+    .eq('user_id', userId)
+    .single()
+
+  if (!membership || !['owner', 'admin'].includes(membership.role)) {
+    return { success: false, error: '只有 Owner 或 Admin 可以強制核准' }
+  }
+
+  const { error: statusError } = await supabase
+    .from('stock_proposals')
+    .update({ status: 'approved' })
+    .eq('id', proposalId)
+
+  if (statusError) return { success: false, error: statusError.message }
+
+  return createConsensusStockRecord(supabase, proposal)
+}
+
+export async function forceRejectProposal(
+  proposalId: string,
+  userId: string
+): Promise<Result<{ message: string }>> {
+  const supabase = await createClient()
+
+  const { data: proposal } = await supabase
+    .from('stock_proposals')
+    .select('status, group_id')
+    .eq('id', proposalId)
+    .single()
+
+  if (!proposal) return { success: false, error: '找不到此提案' }
+  if (['approved', 'rejected', 'closed'].includes(proposal.status)) {
+    return { success: false, error: '此提案狀態無法標記未通過' }
+  }
+
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', proposal.group_id)
+    .eq('user_id', userId)
+    .single()
+
+  if (!membership || !['owner', 'admin'].includes(membership.role)) {
+    return { success: false, error: '只有 Owner 或 Admin 可以強制未通過' }
+  }
+
+  const { error } = await supabase
+    .from('stock_proposals')
+    .update({ status: 'rejected' })
+    .eq('id', proposalId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, data: { message: '已標記為未通過' } }
 }
 
 // ─── Consensus Stock Close ───────────────────────────────────────

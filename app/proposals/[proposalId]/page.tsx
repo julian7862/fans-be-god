@@ -17,7 +17,8 @@ import { BearReviewerPanel } from '@/components/features/proposal/BearReviewerPa
 import { ScorePanel } from '@/components/features/proposal/ScorePanel'
 import { VotePanel } from '@/components/features/proposal/VotePanel'
 import { ConsensusCheckPanel } from '@/components/features/proposal/ConsensusCheckPanel'
-import { submitScoreAction, submitVoteAction, approveProposalAction, finalizeVoteAction } from './actions'
+import { ForceActionPanel } from '@/components/features/proposal/ForceActionPanel'
+import { submitScoreAction, submitVoteAction, approveProposalAction, forceApproveAction, forceRejectAction } from './actions'
 
 export default async function ProposalDetailPage({
   params,
@@ -244,12 +245,26 @@ export default async function ProposalDetailPage({
                 proposalId={proposalId}
                 myVote={myVote}
                 allVotes={allVotes}
-                canFinalize={canApprove && proposal.status === 'voting'}
                 onSubmitVote={submitVoteAction}
-                onFinalizeVote={finalizeVoteAction}
               />
             </CardContent>
           </Card>
+
+          {/* Admin Force Actions */}
+          {canApprove && !['approved', 'rejected', 'closed'].includes(proposal.status) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">管理員操作</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ForceActionPanel
+                  proposalId={proposalId}
+                  onForceApprove={forceApproveAction}
+                  onForceReject={forceRejectAction}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Consensus Check */}
           {consensusCheck && (
