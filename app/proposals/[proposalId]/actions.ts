@@ -17,7 +17,7 @@ import { updateProposal } from '@/lib/proposal/service'
 import { updateProposalSchema } from '@/lib/validation/proposalSchema'
 import { submitScore, type ScoreInput } from '@/lib/scoring/service'
 import { submitVote } from '@/lib/scoring/service'
-import { approveProposal } from '@/lib/consensus/service'
+import { approveProposal, evaluateVoteResult } from '@/lib/consensus/service'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { RiskSeverity, CommentType, VoteValue } from '@/types/proposal'
@@ -220,8 +220,25 @@ export async function submitVoteAction(proposalId: string, formData: FormData) {
   const result = await submitVote(proposalId, user.id, vote, reason)
   if (!result.success) return { error: result.error }
 
+  // 全員投票後自動判定
+  await evaluateVoteResult(proposalId, user.id, { forceByAdmin: false })
+
   revalidatePath(`/proposals/${proposalId}`)
   return { success: true }
+}
+
+export async function finalizeVoteAction(
+  proposalId: string
+): Promise<{ error?: string; result?: 'rejected' | 'passed' }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: '請先登入' }
+
+  const evalResult = await evaluateVoteResult(proposalId, user.id, { forceByAdmin: true })
+  if (!evalResult.success) return { error: evalResult.error }
+
+  revalidatePath(`/proposals/${proposalId}`)
+  return { result: evalResult.data.rejected ? 'rejected' : 'passed' }
 }
 
 export async function updateProposalAction(proposalId: string, formData: FormData) {

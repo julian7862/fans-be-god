@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FollowButton } from '@/components/features/consensus/FollowButton'
+import { CloseConsensusPanel } from '@/components/features/consensus/CloseConsensusPanel'
+import { closeConsensusStockAction } from './actions'
+import { getGroupMembers } from '@/lib/group/service'
 
 export default async function ConsensusStockDetailPage({
   params,
@@ -28,6 +31,12 @@ export default async function ConsensusStockDetailPage({
   const trades = tradesResult.success ? tradesResult.data : []
   const myTradeResult = await getMyTradeRecord(consensusStockId, user.id)
   const myTrade = myTradeResult.success ? myTradeResult.data : null
+
+  const membersResult = await getGroupMembers(stock.group_id)
+  const members = membersResult.success ? membersResult.data : []
+  const myMembership = members.find(m => m.user_id === user.id)
+  const canClose = stock.status !== 'closed' && stock.status !== 'cancelled' &&
+    (myMembership?.role === 'owner' || myMembership?.role === 'admin')
 
   const closedReturns = trades
     .filter(t => t.final_return_pct !== null)
@@ -176,6 +185,21 @@ export default async function ConsensusStockDetailPage({
               </div>
             </CardContent>
           </Card>
+
+          {/* Close Consensus */}
+          {canClose && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">結案</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CloseConsensusPanel
+                  consensusStockId={consensusStockId}
+                  onClose={closeConsensusStockAction}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* My Trade */}
           <Card>

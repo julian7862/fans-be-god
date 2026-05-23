@@ -54,6 +54,9 @@ export type ConsensusStock = {
   consensus_target_price: number | null
   consensus_stop_loss_price: number | null
   status: ConsensusStockStatus
+  exit_price: number | null
+  close_reason: string | null
+  closed_at: string | null
   created_at: string
   updated_at: string
 }

@@ -17,7 +17,7 @@ import { BearReviewerPanel } from '@/components/features/proposal/BearReviewerPa
 import { ScorePanel } from '@/components/features/proposal/ScorePanel'
 import { VotePanel } from '@/components/features/proposal/VotePanel'
 import { ConsensusCheckPanel } from '@/components/features/proposal/ConsensusCheckPanel'
-import { submitScoreAction, submitVoteAction, approveProposalAction } from './actions'
+import { submitScoreAction, submitVoteAction, approveProposalAction, finalizeVoteAction } from './actions'
 
 export default async function ProposalDetailPage({
   params,
@@ -244,7 +244,9 @@ export default async function ProposalDetailPage({
                 proposalId={proposalId}
                 myVote={myVote}
                 allVotes={allVotes}
+                canFinalize={canApprove && proposal.status === 'voting'}
                 onSubmitVote={submitVoteAction}
+                onFinalizeVote={finalizeVoteAction}
               />
             </CardContent>
           </Card>

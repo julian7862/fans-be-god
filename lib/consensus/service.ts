@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { updateProposalStatus } from '@/lib/proposal/service'
+import { computeVoteOutcome } from './voteHelpers'
 import type { ConsensusCheckResult } from '@/types/performance'
 import type { ConsensusStock } from '@/types/trade'
 
@@ -172,4 +174,139 @@ export async function approveProposal(
 
   if (insertError) return { success: false, error: insertError.message }
   return { success: true, data: consensusStock }
+}
+
+// ─── Vote Evaluation ────────────────────────────────────────────
+
+export type VoteEvalResult = {
+  allVoted: boolean
+  passed: boolean
+  rejected: boolean
+  agreeRatio: number
+  averageScore: number
+}
+
+export async function evaluateVoteResult(
+  proposalId: string,
+  userId: string,
+  options: { forceByAdmin: boolean }
+): Promise<Result<VoteEvalResult>> {
+  const supabase = await createClient()
+
+  const { data: proposal } = await supabase
+    .from('stock_proposals')
+    .select('*, groups(*)')
+    .eq('id', proposalId)
+    .single()
+
+  if (!proposal) return { success: false, error: '找不到此提案' }
+  if (proposal.status !== 'voting') {
+    return { success: false, error: '提案不在投票狀態' }
+  }
+
+  const group = proposal.groups
+
+  if (options.forceByAdmin) {
+    const { data: membership } = await supabase
+      .from('group_members')
+      .select('role')
+      .eq('group_id', proposal.group_id)
+      .eq('user_id', userId)
+      .single()
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      return { success: false, error: '只有 Owner 或 Admin 可以手動結束投票' }
+    }
+  }
+
+  const { data: votes } = await supabase
+    .from('proposal_votes')
+    .select('vote')
+    .eq('proposal_id', proposalId)
+
+  const { data: scores } = await supabase
+    .from('proposal_scores')
+    .select('total_score')
+    .eq('proposal_id', proposalId)
+
+  let memberCount = Infinity
+  if (!options.forceByAdmin) {
+    const { count } = await supabase
+      .from('group_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('group_id', proposal.group_id)
+    memberCount = count ?? 0
+  }
+
+  const outcome = computeVoteOutcome({
+    votes: votes?.map(v => v.vote) ?? [],
+    scores: scores?.map(s => s.total_score).filter((s): s is number => s !== null) ?? [],
+    memberCount,
+    agreeThreshold: group.consensus_agree_threshold,
+    scoreThreshold: group.consensus_score_threshold,
+    forceByAdmin: options.forceByAdmin,
+  })
+
+  if (!outcome.allVoted) {
+    return { success: true, data: { allVoted: false, passed: false, rejected: false, agreeRatio: outcome.agreeRatio, averageScore: outcome.averageScore } }
+  }
+
+  if (!outcome.passed) {
+    await updateProposalStatus(proposalId, 'rejected', userId)
+    return { success: true, data: { allVoted: true, passed: false, rejected: true, agreeRatio: outcome.agreeRatio, averageScore: outcome.averageScore } }
+  }
+
+  return { success: true, data: { allVoted: true, passed: true, rejected: false, agreeRatio: outcome.agreeRatio, averageScore: outcome.averageScore } }
+}
+
+// ─── Consensus Stock Close ───────────────────────────────────────
+
+export async function closeConsensusStock(
+  consensusStockId: string,
+  userId: string,
+  exitPrice: number,
+  closeReason?: string
+): Promise<Result<ConsensusStock>> {
+  const supabase = await createClient()
+
+  const { data: stock } = await supabase
+    .from('consensus_stocks')
+    .select('*')
+    .eq('id', consensusStockId)
+    .single()
+
+  if (!stock) return { success: false, error: '找不到此共識股票' }
+  if (!['active', 'watching'].includes(stock.status)) {
+    return { success: false, error: '此共識股票已結案或已取消' }
+  }
+
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', stock.group_id)
+    .eq('user_id', userId)
+    .single()
+
+  if (!membership || !['owner', 'admin'].includes(membership.role)) {
+    return { success: false, error: '只有 Owner 或 Admin 可以結案' }
+  }
+
+  const { data: updated, error } = await supabase
+    .from('consensus_stocks')
+    .update({
+      status: 'closed',
+      exit_price: exitPrice,
+      close_reason: closeReason ?? null,
+      closed_at: new Date().toISOString(),
+    })
+    .eq('id', consensusStockId)
+    .select()
+    .single()
+
+  if (error) return { success: false, error: error.message }
+
+  if (stock.proposal_id) {
+    await updateProposalStatus(stock.proposal_id, 'closed', userId)
+  }
+
+  return { success: true, data: updated }
 }

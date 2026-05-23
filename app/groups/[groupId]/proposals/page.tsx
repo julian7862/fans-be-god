@@ -37,9 +37,11 @@ export default async function ProposalsPage({
     <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold">提案池</h2>
-        <Link href={`/groups/${groupId}/proposals/new`}>
-          <Button>新增提案</Button>
-        </Link>
+        {status !== 'rejected' && status !== 'closed' && (
+          <Link href={`/groups/${groupId}/proposals/new`}>
+            <Button>新增提案</Button>
+          </Link>
+        )}
       </div>
 
       <div className="mb-6">
